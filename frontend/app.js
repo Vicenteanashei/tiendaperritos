@@ -7,6 +7,8 @@ const API_BASE = (window.location.hostname === "localhost" || window.location.ho
   ? "http://localhost:3002/api/productos"
   : "/api/productos";
 
+// ... (No hay referencias específicas a 'perritos' en la lógica principal)
+
 
 let editandoId = null;
 
