@@ -188,33 +188,11 @@ app.delete("/api/productos/:id", async (req, res) => {
   }
 });
 
-// Endpoint de reseteo para cargar catálogo de vaporizadores
-app.get("/api/reset-db", async (req, res) => {
-  if (isMock) return res.status(400).json({ message: "No soportado en modo mock" });
-
-  const vaporizadores = [
-    ["Vape Master X", "Potencia 80W, batería 3000mAh", 25000, 50],
-    ["Cloud Vapor Mini", "Compacto y elegante", 15000, 100],
-    ["Turbo Cloud 5000", "Mod potente para grandes nubes", 45000, 30],
-    ["Vape Pen Slim", "Discreto y fácil de usar", 12000, 80],
-    ["Dragon Mod Pro", "Chasis de aluminio, 200W", 65000, 20],
-    ["Fresh Mist Pod", "Sabor puro, carga rápida", 18000, 60],
-    ["Arctic Chill Box", "Sistema de enfriamiento avanzado", 55000, 25],
-    ["Nano Vapor", "El más pequeño del mercado", 10000, 120],
-    ["Thunder Cloud", "Experiencia intensa", 38000, 40],
-    ["Vape Lux Edition", "Acabado en cuero premium", 75000, 15]
-  ];
-
-  try {
-    await pool.query("DELETE FROM productos");
-    for (const p of vaporizadores) {
-      await pool.query("INSERT INTO productos (nombre, descripcion, precio, stock) VALUES (?, ?, ?, ?)", p);
-    }
-    res.json({ message: "Base de datos reseteada y catálogo de vaporizadores cargado exitosamente." });
-  } catch (err) {
-    handleError(res, err, "Error al resetear la base de datos.");
-  }
+// Endpoint de salud
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", isMock, message: "Backend de tienda de perritos en ejecución." });
 });
+
 
 // Iniciar servidor
 app.listen(PORT, async () => {
