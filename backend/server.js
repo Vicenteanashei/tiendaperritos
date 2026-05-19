@@ -11,15 +11,31 @@ const {
   DB_PASSWORD = "admin123",
   DB_NAME = "tienda_perritos",
   DB_PORT = 3306,
+  USE_MOCK_DB = "false"
 } = process.env;
 
 app.use(cors());
 app.use(express.json());
 
 let pool;
+let isMock = USE_MOCK_DB === "true";
+
+// DB temporal en memoria
+let mockProductos = [
+  { id: 5, nombre: "Bravery pollo Adulto raza pequeña", descripcion: "Sabor a pollo, premium sin grano", precio: 25990, stock: 20 },
+  { id: 4, nombre: "Alimento Adulto Pedigree", descripcion: "Sabor carne y vegetales", precio: 15990, stock: 40 },
+  { id: 3, nombre: "Snacks Dentales", descripcion: "Ayuda a la limpieza dental diaria", precio: 5990, stock: 30 },
+  { id: 2, nombre: "Alimento Adulto Light", descripcion: "Control de peso, razas medianas", precio: 17990, stock: 8 },
+  { id: 1, nombre: "Alimento Cachorro Premium", descripcion: "Sabor a pollo, razas pequeñas", precio: 19990, stock: 15 }
+];
+let nextId = 6;
 
 // Inicializar pool de conexiones
 async function initDb() {
+  if (isMock) {
+    console.log("⚠️ Corriendo en modo MOCK (Base de datos en memoria local activa).");
+    return;
+  }
   try {
     pool = mysql.createPool({
       host: DB_HOST,
@@ -33,7 +49,8 @@ async function initDb() {
     });
     console.log("Pool de conexiones MySQL inicializado.");
   } catch (err) {
-    console.error("Error al inicializar pool de MySQL:", err);
+    console.error("Error al inicializar pool de MySQL. Activando fallback en memoria...", err);
+    isMock = true;
   }
 }
 
@@ -45,6 +62,9 @@ function handleError(res, error, message = "Error interno del servidor") {
 
 // Obtener todos los productos
 app.get("/api/productos", async (req, res) => {
+  if (isMock) {
+    return res.json(mockProductos);
+  }
   try {
     const [rows] = await pool.query("SELECT id, nombre, descripcion, precio, stock FROM productos ORDER BY id DESC");
     res.json(rows);
@@ -56,6 +76,11 @@ app.get("/api/productos", async (req, res) => {
 // Obtener un producto por ID
 app.get("/api/productos/:id", async (req, res) => {
   const { id } = req.params;
+  if (isMock) {
+    const prod = mockProductos.find(p => p.id === parseInt(id, 10));
+    if (!prod) return res.status(404).json({ message: "Producto no encontrado." });
+    return res.json(prod);
+  }
   try {
     const [rows] = await pool.query("SELECT id, nombre, descripcion, precio, stock FROM productos WHERE id = ?", [id]);
     if (rows.length === 0) {
@@ -73,6 +98,18 @@ app.post("/api/productos", async (req, res) => {
 
   if (!nombre || precio == null || stock == null) {
     return res.status(400).json({ message: "Nombre, precio y stock son obligatorios." });
+  }
+
+  if (isMock) {
+    const nuevo = {
+      id: nextId++,
+      nombre,
+      descripcion: descripcion || null,
+      precio: Number(precio),
+      stock: Number(stock)
+    };
+    mockProductos.unshift(nuevo); // Añadir al inicio
+    return res.status(201).json(nuevo);
   }
 
   try {
@@ -97,6 +134,21 @@ app.put("/api/productos/:id", async (req, res) => {
     return res.status(400).json({ message: "Nombre, Precio y Stock son obligatorios." });
   }
 
+  if (isMock) {
+    const index = mockProductos.findIndex(p => p.id === parseInt(id, 10));
+    if (index === -1) {
+      return res.status(404).json({ message: "Producto no encontrado." });
+    }
+    mockProductos[index] = {
+      id: parseInt(id, 10),
+      nombre,
+      descripcion: descripcion || null,
+      precio: Number(precio),
+      stock: Number(stock)
+    };
+    return res.json(mockProductos[index]);
+  }
+
   try {
     const [result] = await pool.query(
       "UPDATE productos SET nombre = ?, descripcion = ?, precio = ?, stock = ? WHERE id = ?",
@@ -117,6 +169,14 @@ app.put("/api/productos/:id", async (req, res) => {
 // Eliminar un producto
 app.delete("/api/productos/:id", async (req, res) => {
   const { id } = req.params;
+  if (isMock) {
+    const index = mockProductos.findIndex(p => p.id === parseInt(id, 10));
+    if (index === -1) {
+      return res.status(404).json({ message: "Producto no encontrado." });
+    }
+    mockProductos.splice(index, 1);
+    return res.json({ message: "Producto eliminado correctamente." });
+  }
   try {
     const [result] = await pool.query("DELETE FROM productos WHERE id = ?", [id]);
     if (result.affectedRows === 0) {
@@ -130,7 +190,7 @@ app.delete("/api/productos/:id", async (req, res) => {
 
 // Endpoint de salud
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "Backend de tienda de perritos en ejecución." });
+  res.json({ status: "ok", isMock, message: "Backend de tienda de perritos en ejecución." });
 });
 
 // Iniciar servidor

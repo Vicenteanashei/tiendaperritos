@@ -2,12 +2,10 @@
  * Frontend simple para CRUD de productos de la tienda de perritos.
  */
 
-// Determinar la URL base de la API según el host
-// frontend/app.js
-
-const API_BASE = "/api/productos";
-
-// Ejemplo: const API_BASE = "http://10.0.2.30:3001/api/productos";
+// Determinar la URL base de la API según el host de forma inteligente
+const API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:")
+  ? "http://localhost:3002/api/productos"
+  : "/api/productos";
 
 
 let editandoId = null;
@@ -26,7 +24,11 @@ const inputStock = document.getElementById("stock");
 
 function setStatus(mensaje, tipo = "ok") {
   statusDiv.textContent = mensaje;
-  statusDiv.className = "status " + tipo;
+  statusDiv.className = `status ${tipo} show`;
+  // Ocultar automáticamente después de 4 segundos
+  setTimeout(() => {
+    statusDiv.classList.remove("show");
+  }, 4000);
 }
 
 async function cargarProductos() {
@@ -47,13 +49,19 @@ function renderProductos(productos) {
   productos.forEach((p) => {
     const tr = document.createElement("tr");
 
+    // Determinar la clase del badge según el stock
+    const stockClass = p.stock <= 5 ? "low" : "normal";
+    const stockText = p.stock <= 5 ? `Poco Stock (${p.stock})` : `${p.stock} uds`;
+
     tr.innerHTML = `
-      <td>${p.id}</td>
-      <td>${p.nombre}</td>
-      <td>${p.descripcion || ""}</td>
-      <td>$${Number(p.precio).toFixed(2)}</td>
-      <td>${p.stock}</td>
-      <td>
+      <td style="font-weight: 600; color: var(--text-muted);">#${p.id}</td>
+      <td style="font-weight: 500;">${p.nombre}</td>
+      <td style="color: var(--text-muted); font-size: 0.88rem;">${p.descripcion || "<i>Sin descripción</i>"}</td>
+      <td style="text-align: right; font-weight: 600; color: var(--primary);">$${Number(p.precio).toLocaleString('es-CL')}</td>
+      <td style="text-align: center;">
+        <span class="badge-stock ${stockClass}">${stockText}</span>
+      </td>
+      <td style="text-align: center; white-space: nowrap;">
         <button data-id="${p.id}" class="btn-editar">Editar</button>
         <button data-id="${p.id}" class="btn-eliminar danger">Eliminar</button>
       </td>
@@ -82,11 +90,12 @@ function renderProductos(productos) {
 
 function limpiarFormulario() {
   editandoId = null;
-  formTitle.textContent = "Nuevo producto";
+  formTitle.textContent = "Agregar Nuevo Producto";
   inputNombre.value = "";
   inputDescripcion.value = "";
   inputPrecio.value = "";
   inputStock.value = "";
+  statusDiv.classList.remove("show");
 }
 
 function obtenerDatosFormulario() {
