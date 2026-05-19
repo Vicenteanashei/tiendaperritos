@@ -1,0 +1,38 @@
+services:
+  db:
+    build: ./db
+    container_name: tienda-db
+    network_mode: host
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-padmin123"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    container_name: tienda-backend
+    network_mode: host
+    environment:
+      - DB_HOST=127.0.0.1
+      - DB_USER=root
+      - DB_PASSWORD=admin123
+      - DB_NAME=tienda_perritos
+      - DB_PORT=3306
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: tienda-frontend
+    network_mode: host
+    environment:
+      - BACKEND_HOST=127.0.0.1
+    depends_on:
+      - backend
+
+volumes:
+  dbdata:
